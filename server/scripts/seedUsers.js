@@ -16,9 +16,11 @@ const seed = async () => {
     for (const u of users) {
       const exists = await User.findOne({ email: u.email });
       if (exists) {
-        console.log(`User ${u.email} already exists - updating role to ${u.role}`);
+        console.log(`User ${u.email} already exists - updating password and role to ${u.role}`);
+        exists.password = u.password; // Update password - will be hashed by pre-save hook
         exists.role = u.role;
         await exists.save();
+        console.log(`Updated user ${u.email} with new password and role`);
         continue;
       }
 

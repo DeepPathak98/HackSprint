@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Wrench, Eye, EyeOff, Loader, CheckCircle, AlertCircle, Shield } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const GearGuardAuth = () => {
   const navigate = useNavigate();
+  const { login, getDashboardUrl, isAuthenticated } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false); // kept false to disable public signup
   const [isAnimating, setIsAnimating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -25,16 +27,11 @@ const GearGuardAuth = () => {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
+    if (isAuthenticated) {
       // If user already logged in, navigate to their dashboard based on role
-      const u = JSON.parse(localStorage.getItem('user') || '{}');
-      const role = u?.role;
-      if (role === 'admin') navigate('/admin');
-      else if (role === 'technician') navigate('/technician');
-      else navigate('/dashboard');
+      navigate(getDashboardUrl());
     }
-  }, [navigate]);
+  }, [isAuthenticated, navigate, getDashboardUrl]);
 
   useEffect(() => {
     // Generate floating particles
@@ -131,53 +128,18 @@ const GearGuardAuth = () => {
           setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
         }, 2000);
       } else {
-        // Sign in API call
-        const response = await fetch('http://localhost:5000/api/auth/signin', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-          }),
-        });
-
-        if (!response.ok) {
-          let error;
-          try {
-            error = await response.json();
-          } catch (e) {
-            error = { message: 'Sign in failed' };
-          }
-          throw new Error(error.message || 'Sign in failed');
-        }
-
-        const data = await response.json();
-        
-        // Check if OTP is required or direct login
-        if (data.token) {
-          // Direct login (test user or Google signin)
-          localStorage.setItem('token', data.token);
-          if (data.user) {
-            localStorage.setItem('user', JSON.stringify(data.user));
-          }
+        // Sign in - use AuthContext login function instead of API call
+        try {
+          const user = await login(formData.email, formData.password);
           setSuccessMessage('Welcome back! Redirecting to dashboard...');
           
           setTimeout(() => {
-            const role = data.user?.role;
-            if (role === 'admin') navigate('/admin');
-            else if (role === 'technician') navigate('/technician');
-            else navigate('/dashboard');
+            navigate(getDashboardUrl());
           }, 500);
-        } else if (data.message === 'OTP sent to your email') {
-          // OTP required - redirect to OTP verification
-          setSuccessMessage('OTP sent to your email. Redirecting to verification...');
-          setTimeout(() => {
-            navigate('/verify-otp', { state: { email: formData.email } });
-          }, 1000);
-        } else {
-          throw new Error('Unexpected response from server');
+        } catch (error) {
+          setErrorMessage(error.message || 'Sign in failed');
+          setIsSubmitting(false);
+          return;
         }
       }
     } catch (error) {
