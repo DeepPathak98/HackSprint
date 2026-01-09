@@ -1,19 +1,20 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Wrench, Users, Calendar, FileText, Search, Plus, TrendingUp, Clock, CheckCircle, ChevronDown, Monitor, Loader, AlertTriangle, RefreshCw } from 'lucide-react';
-import { Line, Pie } from 'react-chartjs-2';
+import { FileText, Search, Loader, AlertTriangle } from 'lucide-react';
 import MainNavigation from '../components/common/MainNavigation';
+import { useAuth } from '../context/AuthContext';
 
-export default function ManagerDashboard({ user, onLogout }) {
+export default function ManagerDashboard({ user }) {
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  const intervalRef = useRef(null);
 
-  // Fetch dashboard data from backend
+  // Use auth context user if component user is not provided
+  const currentUser = user || authUser;
+
   const fetchDashboardData = useCallback(async (isInitial = false) => {
     try {
       if (isInitial) {
@@ -58,60 +59,14 @@ export default function ManagerDashboard({ user, onLogout }) {
     }
   }, [navigate]);
 
-  // Fetch data on component mount and set up polling
   useEffect(() => {
     fetchDashboardData(true);
-
-    // Set up polling every 5 seconds for dynamic updates
-    intervalRef.current = setInterval(() => {
-      fetchDashboardData(false);
-    }, 5000);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
   }, [fetchDashboardData]);
-
-  // Filter recent requests based on search term
-  const filteredRequests = dashboardData?.recentRequests?.filter(request =>
-    request.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    request.equipment?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    request.technician?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    request.technician?.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
-
-  // Get status color for maintenance requests
-  const getStatusColor = (status) => {
-    const s = (status || '').toString().toLowerCase();
-    if (s === 'repaired' || s === 'completed') return 'bg-green-500/20 text-green-300';
-    if (s === 'in progress' || s === 'in-progress' || s === 'in_progress') return 'bg-blue-500/20 text-blue-300';
-    if (s === 'new' || s === 'pending') return 'bg-yellow-500/20 text-yellow-300';
-    if (s === 'scrap' || s === 'scrapped') return 'bg-gray-600/20 text-gray-300';
-    return 'bg-gray-500/20 text-gray-300';
-  };
-
-  // Get priority color
-  const getPriorityColor = (priority) => {
-    switch (priority?.toLowerCase()) {
-      case 'critical':
-        return 'bg-red-500/20 text-red-300';
-      case 'high':
-        return 'bg-orange-500/20 text-orange-300';
-      case 'medium':
-        return 'bg-yellow-500/20 text-yellow-300';
-      case 'low':
-        return 'bg-green-500/20 text-green-300';
-      default:
-        return 'bg-gray-500/20 text-gray-300';
-    }
-  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-100">
-        <MainNavigation user={user} onLogout={onLogout} />
+        <MainNavigation user={currentUser} />
         <main className="px-6 py-6">
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center space-x-3 text-cyan-400">
@@ -127,7 +82,7 @@ export default function ManagerDashboard({ user, onLogout }) {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-100">
-        <MainNavigation user={user} onLogout={onLogout} />
+        <MainNavigation user={currentUser} />
         <main className="px-6 py-6">
           <div className="bg-red-900/20 border border-red-700 rounded-xl p-6 mb-6">
             <div className="flex items-center space-x-3 text-red-400">
@@ -135,7 +90,7 @@ export default function ManagerDashboard({ user, onLogout }) {
               <span className="text-sm">{error}</span>
             </div>
             <button
-              onClick={fetchDashboardData}
+              onClick={() => fetchDashboardData(true)}
               className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
               Retry
@@ -146,77 +101,55 @@ export default function ManagerDashboard({ user, onLogout }) {
     );
   }
 
-  const stats = dashboardData?.statistics || {};
+  const filteredRequests = dashboardData?.recentRequests?.filter(request =>
+    request.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    request.equipment?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    request.technician?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    request.technician?.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
-  // Export top equipment list to CSV
-  const exportTopEquipmentCSV = () => {
-    const rows = [['Equipment ID', 'Name', 'Requests', 'Percent']];
-    const total = dashboardData?.totalRequests || 0;
-    (dashboardData?.topEquipment || []).forEach(eq => {
-      const percent = total > 0 ? Math.round((eq.count / total) * 100) : 0;
-      rows.push([eq.equipmentId, eq.name, String(eq.count), `${percent}%`]);
-    });
-    const csvContent = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'top_equipment.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+  const getStatusColor = (status) => {
+    const s = (status || '').toString().toLowerCase();
+    if (s === 'repaired' || s === 'completed') return 'bg-green-500/20 text-green-300';
+    if (s === 'in progress' || s === 'in-progress' || s === 'in_progress') return 'bg-blue-500/20 text-blue-300';
+    if (s === 'new' || s === 'pending') return 'bg-yellow-500/20 text-yellow-300';
+    if (s === 'scrap' || s === 'scrapped') return 'bg-gray-600/20 text-gray-300';
+    return 'bg-gray-500/20 text-gray-300';
   };
 
-  console.log('token:', localStorage.getItem('token'));
-  console.log('user:', JSON.parse(localStorage.getItem('user') || '{}'));
+  const getPriorityColor = (priority) => {
+    switch (priority?.toLowerCase()) {
+      case 'critical':
+        return 'bg-red-500/20 text-red-300';
+      case 'high':
+        return 'bg-orange-500/20 text-orange-300';
+      case 'medium':
+        return 'bg-yellow-500/20 text-yellow-300';
+      case 'low':
+        return 'bg-green-500/20 text-green-300';
+      default:
+        return 'bg-gray-500/20 text-gray-300';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-100">
-      {/* Main Navigation */}
-      <MainNavigation user={user} onLogout={onLogout} />
 
-      {/* Main Content */}
       <main className="px-6 py-6">
-        {/* Action Bar */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => navigate('/maintenance/new')}
-              className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-blue-500/30 cursor-pointer"
-            >
-              <Plus className="w-5 h-5" />
-              <span>New Request</span>
-            </button>
-            <button
-              onClick={() => navigate('/maintenance-kanban')}
-              title="Open Kanban Board"
-              className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-purple-500/20 cursor-pointer"
-            >
-              <Wrench className="w-5 h-5" />
-              <span>Open Kanban Board</span>
-            </button>
-            <button
-              onClick={() => navigate('/maintenance-calendar')}
-              title="Schedule Preventive Maintenance"
-              className="flex items-center space-x-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
-            >
-              <Calendar className="w-5 h-5" />
-              <span>Schedule Preventive</span>
-            </button>
-            <button
-              onClick={async () => {
-                setRefreshing(true);
-                await fetchDashboardData(false);
-                setRefreshing(false);
-              }}
-              disabled={refreshing}
-              className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-500 px-4 py-2 rounded-lg font-medium transition-all cursor-pointer"
-            >
-              <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
-            </button>
+        {/* Manager Menu */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-semibold">Manager Menu</h1>
+          <div className="flex items-center space-x-3">
+            <button onClick={() => navigate('/manager-dashboard')} className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 rounded-lg text-white font-medium">Dashboard</button>
+            <button onClick={() => navigate('/maintenance-calendar')} className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-lg text-white font-medium">Calendar</button>
+            <button onClick={() => navigate('/equipment')} className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 rounded-lg text-white font-medium">Equipment</button>
+            <button onClick={() => navigate('/reporting')} className="px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 rounded-lg text-white font-medium">Reports</button>
           </div>
+        </div>
 
-          <div className="relative flex-1 max-w-md ml-6">
+        {/* Search Bar */}
+        <div className="mb-8">
+          <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
             <input
               type="text"
@@ -227,341 +160,6 @@ export default function ManagerDashboard({ user, onLogout }) {
             />
           </div>
         </div>
-
-        {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Critical Equipment Card */}
-          <div className="bg-gradient-to-br from-red-900/40 to-red-800/40 backdrop-blur-sm border border-red-700/50 rounded-xl p-6 hover:shadow-lg hover:shadow-red-500/20 transition-all">
-            <div className="flex items-start justify-between mb-4">
-              <AlertCircle className="w-8 h-8 text-red-400" />
-              <span className="px-3 py-1 bg-red-500/20 text-red-300 text-xs font-semibold rounded-full">
-                CRITICAL
-              </span>
-            </div>
-            <h3 className="text-lg font-semibold text-red-300 mb-2">Equipment Issues</h3>
-            <div className="text-3xl font-bold text-white mb-1">{stats.underRepairEquipment || 0} Units</div>
-            <p className="text-sm text-red-300">Under Repair</p>
-          </div>
-
-          {/* Technician Load Card */}
-          <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/40 backdrop-blur-sm border border-blue-700/50 rounded-xl p-6 hover:shadow-lg hover:shadow-blue-500/20 transition-all">
-            <div className="flex items-start justify-between mb-4">
-              <Users className="w-8 h-8 text-blue-400" />
-              <span className="px-3 py-1 bg-blue-500/20 text-blue-300 text-xs font-semibold rounded-full">
-                UTILIZATION
-              </span>
-            </div>
-            <h3 className="text-lg font-semibold text-blue-300 mb-2">Technician Load</h3>
-            <div className="text-3xl font-bold text-white mb-1">{stats.technicianUtilization || 0}%</div>
-            <p className="text-sm text-blue-300">Active Technicians: {stats.activeTechnicians || 0}</p>
-          </div>
-
-          {/* Open Requests Card */}
-          <div className="bg-gradient-to-br from-green-900/40 to-green-800/40 backdrop-blur-sm border border-green-700/50 rounded-xl p-6 hover:shadow-lg hover:shadow-green-500/20 transition-all">
-            <div className="flex items-start justify-between mb-4">
-              <FileText className="w-8 h-8 text-green-400" />
-              <span className="px-3 py-1 bg-green-500/20 text-green-300 text-xs font-semibold rounded-full">
-                ACTIVE
-              </span>
-            </div>
-            <h3 className="text-lg font-semibold text-green-300 mb-2">Open Requests</h3>
-            <div className="flex items-baseline space-x-3 mb-1">
-              <span className="text-3xl font-bold text-white">{stats.pendingRequests || 0}</span>
-              <span className="text-lg text-green-300">Pending</span>
-            </div>
-            <p className="text-sm text-red-300">{stats.overdueRequests || 0} Overdue</p>
-          </div>
-        </div>
-
-        {/* Additional Quick Insights: Preventive vs Corrective, Overdue Emphasis, Scrapped */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          {/* Preventive vs Corrective */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm text-gray-400">Maintenance Type</h4>
-              <ChevronDown className="w-5 h-5 text-gray-400" />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-400">Preventive</p>
-                <p className="text-2xl font-bold text-white">{dashboardData?.maintenanceTypeDistribution?.Preventive ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Corrective</p>
-                <p className="text-2xl font-bold text-white">{dashboardData?.maintenanceTypeDistribution?.Corrective ?? 0}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Overdue Emphasis Card */}
-          <div className={`p-4 rounded-lg ${stats.overdueRequests > 0 ? 'border-2 border-red-500 bg-red-900/20 animate-pulse' : 'bg-slate-800/50 border border-slate-700'}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">Overdue Requests</p>
-                <p className="text-2xl font-bold text-white">{stats.overdueRequests || 0}</p>
-              </div>
-              <div className={`${stats.overdueRequests > 0 ? 'text-red-400' : 'text-gray-400'}`}>
-                <AlertCircle className="w-8 h-8" />
-              </div>
-            </div>
-          </div>
-
-          {/* Scrapped Equipment */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">Scrapped Equipment</p>
-                <p className="text-2xl font-bold text-white">{dashboardData?.scrappedEquipment ?? 0}</p>
-              </div>
-              <div>
-                <Monitor className="w-8 h-8 text-gray-400" />
-              </div>
-            </div>
-          </div>
-
-          {/* Calendar Shortcut */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">Maintenance Calendar</p>
-                <p className="text-2xl font-bold text-white">Quick View</p>
-              </div>
-              <button onClick={() => navigate('/maintenance-calendar')} className="px-3 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-md text-white">Open</button>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-4 hover:border-cyan-500/50 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm mb-1">Completed Today</p>
-                <p className="text-2xl font-bold text-white">{stats.completedToday || 0}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-green-500" />
-            </div>
-          </div>
-
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-4 hover:border-cyan-500/50 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm mb-1">Avg Response Time</p>
-                <p className="text-2xl font-bold text-white">{stats.avgResponseTime || 0}h</p>
-              </div>
-              <Clock className="w-8 h-8 text-blue-500" />
-            </div>
-          </div>
-
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-4 hover:border-cyan-500/50 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm mb-1">Active Technicians</p>
-                <p className="text-2xl font-bold text-white">{stats.totalTechnicians || 0}</p>
-              </div>
-              <Users className="w-8 h-8 text-purple-500" />
-            </div>
-          </div>
-
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-4 hover:border-cyan-500/50 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm mb-1">Equipment Health</p>
-                <p className="text-2xl font-bold text-white">{stats.equipmentHealth || 0}%</p>
-              </div>
-              <TrendingUp className={`w-8 h-8 ${stats.equipmentHealth >= 80 ? 'text-green-500' : stats.equipmentHealth >= 60 ? 'text-yellow-500' : 'text-red-500'}`} />
-            </div>
-          </div>
-        </div>
-
-        {/* Charts Section */}
-        {dashboardData?.trends && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Monthly Trends Chart */}
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6">
-              <div className="flex items-center space-x-2 mb-4">
-                <TrendingUp className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-lg font-semibold text-white">Maintenance Trends</h3>
-              </div>
-              <div className="h-64">
-                <Line
-                  data={dashboardData.trends.monthlyTrendData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        labels: {
-                          color: '#e2e8f0'
-                        }
-                      }
-                    },
-                    scales: {
-                      x: {
-                        ticks: {
-                          color: '#94a3b8'
-                        },
-                        grid: {
-                          color: '#334155'
-                        }
-                      },
-                      y: {
-                        ticks: {
-                          color: '#94a3b8'
-                        },
-                        grid: {
-                          color: '#334155'
-                        }
-                      }
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Status Distribution Chart */}
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6">
-              <div className="flex items-center space-x-2 mb-4">
-                <FileText className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-lg font-semibold text-white">Request Status Distribution</h3>
-              </div>
-              <div className="h-64">
-                <Pie
-                  data={dashboardData.trends.statusData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        labels: {
-                          color: '#e2e8f0'
-                        }
-                      }
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {dashboardData?.upcomingMaintenance && dashboardData.upcomingMaintenance.length > 0 && (
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 mb-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Calendar className="w-5 h-5 text-cyan-400" />
-              <h2 className="text-xl font-semibold text-white">Upcoming Maintenance (Next 7 Days)</h2>
-            </div>
-            <div className="space-y-3">
-              {dashboardData.upcomingMaintenance.map((item) => (
-                <div key={item._id} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Clock className="w-4 h-4 text-cyan-400" />
-                    <div>
-                      <p className="text-sm font-medium text-white">{item.subject}</p>
-                      <p className="text-xs text-gray-400">
-                        {item.equipment?.name} • {item.technician ? `${item.technician.firstName} ${item.technician.lastName}` : 'Unassigned'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-cyan-400">
-                      {item.scheduledDate ? new Date(item.scheduledDate).toLocaleDateString() : 'No date'}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {item.scheduledDate ? new Date(item.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Top Problematic Equipment */}
-        {dashboardData?.topEquipment && dashboardData.topEquipment.length > 0 && (
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 mb-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Wrench className="w-5 h-5 text-cyan-400" />
-              <h2 className="text-xl font-semibold text-white">Top 5 Problematic Equipment</h2>
-              <div className="ml-auto">
-                <button onClick={exportTopEquipmentCSV} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-md text-sm">Export CSV</button>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {dashboardData.topEquipment.map((eq) => {
-                const percent = dashboardData.totalRequests ? Math.round((eq.count / dashboardData.totalRequests) * 100) : 0;
-                return (
-                  <div key={eq.equipmentId} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Monitor className="w-5 h-5 text-cyan-400" />
-                      <div>
-                        <p className="text-sm font-medium text-white">{eq.name}</p>
-                        <p className="text-xs text-gray-400">Requests: {eq.count} • {percent}% of total</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <button onClick={() => navigate(`/equipment/${eq.equipmentId}`)} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-md text-sm">View</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Top Downtime Equipment */}
-        {dashboardData?.topDowntime && dashboardData.topDowntime.length > 0 && (
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 mb-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Clock className="w-5 h-5 text-cyan-400" />
-              <h2 className="text-xl font-semibold text-white">Top Downtime Equipment</h2>
-            </div>
-            <div className="space-y-3">
-              {dashboardData.topDowntime.map(item => (
-                <div key={item.equipmentId} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Monitor className="w-5 h-5 text-cyan-400" />
-                    <div>
-                      <p className="text-sm font-medium text-white">{item.name}</p>
-                      <p className="text-xs text-gray-400">Downtime: {item.totalDowntime} hrs • Requests: {item.requests}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <button onClick={() => navigate(`/equipment/${item.equipmentId}`)} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-md text-sm">View</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Warranty Expiring Soon */}
-        {dashboardData?.warrantyExpiring && dashboardData.warrantyExpiring.length > 0 && (
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-amber-700 rounded-xl p-6 mb-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
-              <h2 className="text-xl font-semibold text-white">Warranty Expiring Soon</h2>
-            </div>
-            <div className="space-y-2">
-              {dashboardData.warrantyExpiring.map(eq => {
-                const expiry = new Date(eq.warrantyExpiresAt);
-                const now = new Date();
-                const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
-                return (
-                  <div key={eq.equipmentId} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-white">{eq.name}</p>
-                      <p className="text-xs text-amber-200">Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''} ({expiry.toLocaleDateString()})</p>
-                    </div>
-                    <div>
-                      <button onClick={() => navigate(`/equipment/${eq.equipmentId}`)} className="px-3 py-1 bg-amber-600 hover:bg-amber-500 rounded-md text-sm">View</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Maintenance Table */}
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl overflow-hidden">
@@ -622,3 +220,4 @@ export default function ManagerDashboard({ user, onLogout }) {
     </div>
   );
 }
+

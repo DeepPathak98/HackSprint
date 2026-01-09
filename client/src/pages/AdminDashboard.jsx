@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Monitor, FileText } from 'lucide-react';
+import { Users, BarChart3 } from 'lucide-react';
 import MainNavigation from '../components/common/MainNavigation';
+import { useAuth } from '../context/AuthContext';
 
-export default function AdminDashboard({ user, onLogout }) {
+export default function AdminDashboard({ user }) {
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
+  const currentUser = user || authUser;
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,58 +31,84 @@ export default function AdminDashboard({ user, onLogout }) {
 
   if (loading) return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-100">
-      <MainNavigation user={user} onLogout={onLogout} />
+      <MainNavigation user={currentUser} />
       <main className="p-6">Loading...</main>
     </div>
   );
 
   if (error) return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-100">
-      <MainNavigation user={user} onLogout={onLogout} />
+      <MainNavigation user={currentUser} />
       <main className="p-6">Error: {error}</main>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-100">
-      <MainNavigation user={user} onLogout={onLogout} />
+      <MainNavigation user={currentUser} />
       <main className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
-          <div className="flex items-center space-x-2">
-            <button onClick={() => navigate('/equipment')} className="px-4 py-2 bg-slate-700 rounded text-white">Equipment</button>
-            <button onClick={() => navigate('/teams')} className="px-4 py-2 bg-slate-700 rounded text-white">Teams</button>
+        {/* Admin Menu */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-semibold">Admin Menu</h1>
+          <div className="flex items-center space-x-3">
+            <button onClick={() => navigate('/admin-dashboard')} className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 rounded-lg text-white font-medium">Admin Dashboard</button>
+            <button onClick={() => navigate('/users')} className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg text-white font-medium">Users</button>
+            <button onClick={() => navigate('/teams')} className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 rounded-lg text-white font-medium">Teams</button>
+            <button onClick={() => navigate('/equipment')} className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-lg text-white font-medium">Equipment</button>
+            <button onClick={() => navigate('/reporting')} className="px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 rounded-lg text-white font-medium">Reports</button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-800/50 p-4 rounded">
-            <h3 className="text-sm text-gray-400">Total Equipment</h3>
-            <p className="text-2xl font-bold">{dashboardData?.totalEquipment ?? 0}</p>
+        {/* Admin Dashboard Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 hover:border-cyan-500/50 transition-all">
+            <h3 className="text-sm text-gray-400 mb-2">Total Equipment</h3>
+            <p className="text-3xl font-bold mb-2">{dashboardData?.totalEquipment ?? 0}</p>
             <p className="text-xs text-gray-400">Scrapped: {dashboardData?.scrappedEquipment ?? 0}</p>
           </div>
 
-          <div className="bg-slate-800/50 p-4 rounded">
-            <h3 className="text-sm text-gray-400">Total Requests</h3>
-            <p className="text-2xl font-bold">{dashboardData?.totalRequests ?? 0}</p>
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 hover:border-cyan-500/50 transition-all">
+            <h3 className="text-sm text-gray-400 mb-2">Total Requests</h3>
+            <p className="text-3xl font-bold mb-2">{dashboardData?.totalRequests ?? 0}</p>
             <p className="text-xs text-gray-400">Pending: {dashboardData?.pendingRequests ?? 0}</p>
           </div>
 
-          <div className="bg-slate-800/50 p-4 rounded">
-            <h3 className="text-sm text-gray-400">Reports</h3>
-            <p className="text-2xl font-bold">&nbsp;</p>
-            <button onClick={() => navigate('/reporting')} className="px-3 py-1 bg-cyan-600 rounded text-white">Open Reports</button>
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 hover:border-cyan-500/50 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-2">System Status</p>
+                <p className="text-3xl font-bold">Active</p>
+              </div>
+              <BarChart3 className="w-10 h-10 text-cyan-400" />
+            </div>
           </div>
         </div>
 
-        <section className="mt-6">
-          <h3 className="font-semibold mb-2">Admin Tools</h3>
-          <div className="space-x-2">
-            <button onClick={() => navigate('/teams')} className="px-3 py-1 bg-slate-700 rounded text-white">Manage Teams</button>
-            <button onClick={() => navigate('/users')} className="px-3 py-1 bg-slate-700 rounded text-white">Manage Users</button>
-            <button onClick={() => navigate('/equipment')} className="px-3 py-1 bg-slate-700 rounded text-white">Manage Equipment</button>
+        {/* Quick Admin Tools */}
+        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6">
+          <h2 className="text-xl font-semibold mb-6 flex items-center space-x-2">
+            <Users className="w-5 h-5 text-cyan-400" />
+            <span>Admin Tools</span>
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button onClick={() => navigate('/users')} className="p-4 bg-slate-700/30 hover:bg-slate-700/50 rounded-lg text-left transition-colors">
+              <p className="font-semibold">Manage Users</p>
+              <p className="text-sm text-gray-400">Add, edit, or remove users</p>
+            </button>
+            <button onClick={() => navigate('/teams')} className="p-4 bg-slate-700/30 hover:bg-slate-700/50 rounded-lg text-left transition-colors">
+              <p className="font-semibold">Manage Teams</p>
+              <p className="text-sm text-gray-400">Organize and manage teams</p>
+            </button>
+            <button onClick={() => navigate('/equipment')} className="p-4 bg-slate-700/30 hover:bg-slate-700/50 rounded-lg text-left transition-colors">
+              <p className="font-semibold">Manage Equipment</p>
+              <p className="text-sm text-gray-400">Track equipment inventory</p>
+            </button>
+            <button onClick={() => navigate('/reporting')} className="p-4 bg-slate-700/30 hover:bg-slate-700/50 rounded-lg text-left transition-colors">
+              <p className="font-semibold">View Reports</p>
+              <p className="text-sm text-gray-400">Analytics and statistics</p>
+            </button>
           </div>
-        </section>
+        </div>
       </main>
     </div>
   );
