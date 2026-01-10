@@ -61,10 +61,18 @@ const getDashboardData = async (req, res) => {
     // Build filter based on user role
     let filter = {};
     if (req.user.role === 'technician') {
+      // For technicians: show tasks where they are:
+      // 1. Assigned as individual technician, OR
+      // 2. Part of the team that the task is assigned to
+      const MaintenanceTeam = require('../models/MaintenanceTeam');
+      const userTeams = await MaintenanceTeam.find({ members: req.user._id });
+      const teamIds = userTeams.map(t => t._id);
+      
       filter = {
         $or: [
-          { technician: req.user._id },
-          { createdBy: req.user._id }
+          { technician: req.user._id },           // Individually assigned
+          { createdBy: req.user._id },            // Created by this technician
+          { team: { $in: teamIds }, technician: null }  // Team assignment (no individual tech)
         ]
       };
     }
