@@ -146,9 +146,6 @@ const signin = async (req, res) => {
   }
 
   try {
-    
-
-    // 🔹 Real users → check DB + OTP flow
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ message: "Invalid email or password" });
@@ -159,69 +156,36 @@ const signin = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    // --- Dev/Test OTP bypass ---
-    // If SKIP_OTP is set to 'true' or we're in development mode, or the legacy
-    // test account is used, return a JWT immediately instead of starting OTP flow.
-    const skipOtp =
-      process.env.SKIP_OTP === 'true' || process.env.NODE_ENV === 'development' ||
-      email === 'test@example.com';
-
-    if (skipOtp) {
-      console.log('OTP bypass active for signin (SKIP_OTP|NODE_ENV|test user).');
-      const payload = {
-        user: {
-          id: user._id,
-        },
-      };
-
-      return jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        { expiresIn: '5h' },
-        (err, token) => {
-          if (err) {
-            console.error('JWT Error:', err);
-            return res.status(500).json({ message: 'Token generation failed' });
-          }
-          return res.json({
-            message: 'Sign in successful (OTP bypassed)',
-            token,
-            user: {
-              id: user.id,
-              email: user.email,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              username: user.username,
-                  role: user.role,
-            },
-          });
-        }
-      );
-    }
-    // --- End dev/test bypass ---
-
-    // OTP logic for normal users
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const newOtp = new Otp({ email: user.email, otp });
-    await newOtp.save();
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: user.email,
-      subject: "Your OTP for Sign In",
-      text: `Your OTP is: ${otp}`,
+    // Always return JWT and user object, skipping OTP flow
+    const payload = {
+      user: {
+        id: user._id,
+      },
     };
 
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.log(error);
-        return res.status(500).json({ message: "Error sending OTP email" });
+    return jwt.sign(
+      payload,
+      process.env.JWT_SECRET,
+      { expiresIn: "5h" },
+      (err, token) => {
+        if (err) {
+          console.error("JWT Error:", err);
+          return res.status(500).json({ message: "Token generation failed" });
+        }
+        return res.json({
+          message: "Sign in successful",
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            username: user.username,
+            role: user.role,
+          },
+        });
       }
-      console.log("Email sent: " + info.response);
-      res
-        .status(200)
-        .json({ message: "OTP sent to your email", email: user.email });
-    });
+    );
   } catch (err) {
     console.error("Signin error stack:", err);
     res.status(500).json({ message: "Server error", error: err.message });
