@@ -130,12 +130,8 @@ const GearGuardAuth = () => {
       } else {
         // Sign in - use AuthContext login function instead of API call
         try {
-          const user = await login(formData.email, formData.password);
+          await login(formData.email, formData.password);
           setSuccessMessage('Welcome back! Redirecting to dashboard...');
-          
-          setTimeout(() => {
-            navigate(getDashboardUrl());
-          }, 500);
         } catch (error) {
           setErrorMessage(error.message || 'Sign in failed');
           setIsSubmitting(false);
