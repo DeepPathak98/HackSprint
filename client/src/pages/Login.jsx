@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wrench, Eye, EyeOff, Loader, CheckCircle, AlertCircle, Shield } from 'lucide-react';
+import { Wrench, Eye, EyeOff, Loader, CheckCircle, AlertCircle, Shield, Building, Phone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const GearGuardAuth = () => {
   const navigate = useNavigate();
   const { login, getDashboardUrl, isAuthenticated } = useAuth();
-  const [isSignUp, setIsSignUp] = useState(false); // kept false to disable public signup
+  const [isSignUp, setIsSignUp] = useState(false); 
   const [isAnimating, setIsAnimating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -23,6 +23,8 @@ const GearGuardAuth = () => {
     email: '',
     password: '',
     confirmPassword: '',
+    companyName: '',
+    mobileNumber: '',
     rememberMe: false
   });
 
@@ -63,6 +65,8 @@ const GearGuardAuth = () => {
         email: '',
         password: '',
         confirmPassword: '',
+        companyName: '',
+        mobileNumber: '',
         rememberMe: false
       });
       setIsAnimating(false);
@@ -101,7 +105,6 @@ const GearGuardAuth = () => {
     // API call
     try {
       if (isSignUp) {
-        // TODO: Replace with actual signup API call
         const response = await fetch('http://localhost:5000/api/auth/signup', {
           method: 'POST',
           headers: {
@@ -113,6 +116,8 @@ const GearGuardAuth = () => {
             lastName: formData.lastName,
             email: formData.email,
             password: formData.password,
+            companyName: formData.companyName,
+            phoneNumber: formData.mobileNumber
           }),
         });
 
@@ -249,8 +254,7 @@ const GearGuardAuth = () => {
       {/* Right Panel - Auth Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative">
         <div className="w-full max-w-md relative z-10">
-          {/* Toggle Button removed to disable public sign-up */}
-
+          
           {/* Form Container */}
           <div className={`bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-2xl p-8 shadow-2xl transition-all duration-400 ${isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
             {/* Logo for Mobile */}
@@ -266,8 +270,8 @@ const GearGuardAuth = () => {
 
             {/* Header */}
             <div className="mb-8">
-              <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
-              <p className="text-slate-400">Sign in to access your dashboard</p>
+              <h2 className="text-3xl font-bold text-white mb-2">{isSignUp ? 'Create Your Account' : 'Welcome Back'}</h2>
+              <p className="text-slate-400">{isSignUp ? 'Join us to streamline your maintenance operations' : 'Sign in to access your dashboard'}</p>
             </div>
 
             {/* Messages */}
@@ -334,6 +338,41 @@ const GearGuardAuth = () => {
                       />
                     </div>
                   </div>
+                  
+                  <div>
+                    <label className="block text-slate-300 text-sm font-medium mb-2">
+                      Company Name (Optional)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="companyName"
+                        value={formData.companyName}
+                        onChange={handleChange}
+                        placeholder="Your company"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
+                      />
+                      <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 text-sm font-medium mb-2">
+                      Mobile Number
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        name="mobileNumber"
+                        value={formData.mobileNumber}
+                        onChange={handleChange}
+                        placeholder="Enter mobile number"
+                        required
+                        className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
+                      />
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    </div>
+                  </div>
                 </>
               )}
 
@@ -376,7 +415,31 @@ const GearGuardAuth = () => {
                 </div>
               </div>
 
-              {/* Public signup is disabled in GearGuard; accounts are created by Admin */}
+              {isSignUp && (
+                  <div>
+                    <label className="block text-slate-300 text-sm font-medium mb-2">
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        placeholder="Confirm your password"
+                        required
+                        className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-orange-400 transition-colors"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                  </div>
+              )}
 
               {!isSignUp && (
                 <div className="flex items-center justify-between">
@@ -436,8 +499,12 @@ const GearGuardAuth = () => {
               </svg>
               <span>Continue with Google</span>
             </button>
+          </div>
 
-            {/* Public sign-up disabled. Contact your Admin to create an account. */}
+          <div className="text-center mt-6">
+            <button onClick={handleToggleForm} className="text-orange-400 hover:text-orange-300 transition-colors font-semibold">
+              {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+            </button>
           </div>
         </div>
       </div>

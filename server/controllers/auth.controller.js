@@ -60,7 +60,7 @@ passport.deserializeUser(async (id, done) => {
 });
 // Signup
 const signup = async (req, res) => {
-  const { username, firstName, lastName, email, password } = req.body;
+  const { username, firstName, lastName, email, password, companyName, phoneNumber } = req.body;
 
   console.log("Signup attempt for email:", email);
   console.log("Request body:", req.body);
@@ -94,6 +94,8 @@ const signup = async (req, res) => {
       lastName,
       email,
       password,
+      companyName,
+      phoneNumber
     });
 
     await user.save();
