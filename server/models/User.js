@@ -19,6 +19,11 @@ const UserSchema = new mongoose.Schema({
         required: false, // Make optional for OAuth users
         trim: true,
     },
+    companyName: {
+        type: String,
+        required: false,
+        trim: true,
+    },
     email: {
         type: String,
         required: true,
